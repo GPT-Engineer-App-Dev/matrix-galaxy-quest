@@ -47,6 +47,12 @@
       background-color: #f00;
       clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
     }
+    .projectile {
+      position: absolute;
+      width: 5px;
+      height: 15px;
+      background-color: #0f0;
+    }
     .matrix-bg {
       position: absolute;
       top: 0;
@@ -82,6 +88,30 @@
     const player = document.getElementById('player');
     const scoreElement = document.getElementById('score-value');
     let score = 0;
+    let projectiles = [];
+
+    function shoot() {
+      const projectile = document.createElement('div');
+      projectile.className = 'projectile';
+      const playerRect = player.getBoundingClientRect();
+      projectile.style.left = `${playerRect.left + playerRect.width / 2 - 2.5}px`;
+      projectile.style.bottom = `${window.innerHeight - playerRect.top}px`;
+      gameContainer.appendChild(projectile);
+      projectiles.push(projectile);
+    }
+
+    function moveProjectiles() {
+      projectiles.forEach((projectile, index) => {
+        const top = window.innerHeight - projectile.offsetTop;
+        if (top > window.innerHeight) {
+          projectile.remove();
+          projectiles.splice(index, 1);
+        } else {
+          projectile.style.bottom = `${top + 5}px`;
+        }
+      });
+      requestAnimationFrame(moveProjectiles);
+    }
 
     function createMatrixBackground() {
       const matrixBg = document.createElement('div');
@@ -145,6 +175,23 @@
       const playerRect = player.getBoundingClientRect();
       const alienRect = alien.getBoundingClientRect();
 
+      projectiles.forEach((projectile, index) => {
+        const projectileRect = projectile.getBoundingClientRect();
+        if (
+          projectileRect.left < alienRect.right &&
+          projectileRect.right > alienRect.left &&
+          projectileRect.top < alienRect.bottom &&
+          projectileRect.bottom > alienRect.top
+        ) {
+          alien.remove();
+          projectile.remove();
+          projectiles.splice(index, 1);
+          score += 10;
+          scoreElement.textContent = score;
+          return;
+        }
+      });
+
       if (
         playerRect.left < alienRect.right &&
         playerRect.right > alienRect.left &&
@@ -152,7 +199,7 @@
         playerRect.bottom > alienRect.top
       ) {
         alien.remove();
-        score += 10;
+        score -= 20;
         scoreElement.textContent = score;
       }
     }
@@ -165,9 +212,16 @@
     createMatrixBackground();
     setInterval(createPlanet, 5000);
     setInterval(createAlien, 2000);
+    moveProjectiles();
 
     gameContainer.addEventListener('mousemove', movePlayer);
     gameContainer.addEventListener('touchmove', movePlayer);
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        shoot();
+      }
+    });
+    gameContainer.addEventListener('click', shoot);
   </script>
 </body>
 
