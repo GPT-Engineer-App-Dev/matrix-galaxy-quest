@@ -12,8 +12,9 @@
       overflow: hidden;
       background-color: #000;
       color: #0f0;
-      font-family: 'Courier New', monospace;
+      font-family: 'Orbitron', sans-serif;
     }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
     #game-container {
       width: 100vw;
       height: 100vh;
@@ -26,18 +27,24 @@
       font-size: 20px;
     }
     #player {
-      width: 40px;
-      height: 40px;
-      background-color: #0f0;
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 40px solid #0f0;
       position: absolute;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      animation: pulse 1s infinite alternate;
+      animation: pulse 1s infinite alternate, thrust 0.1s infinite alternate;
     }
     @keyframes pulse {
-      from { box-shadow: 0 0 10px #0f0; }
-      to { box-shadow: 0 0 20px #0f0, 0 0 40px #0f0; }
+      from { filter: drop-shadow(0 0 10px #0f0); }
+      to { filter: drop-shadow(0 0 20px #0f0) drop-shadow(0 0 40px #0f0); }
+    }
+    @keyframes thrust {
+      from { border-bottom-width: 40px; }
+      to { border-bottom-width: 50px; }
     }
     .planet {
       position: absolute;
@@ -54,9 +61,15 @@
     }
     .projectile {
       position: absolute;
-      width: 5px;
-      height: 15px;
+      width: 3px;
+      height: 20px;
       background-color: #0f0;
+      box-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+      animation: laser-pulse 0.1s infinite alternate;
+    }
+    @keyframes laser-pulse {
+      from { opacity: 0.7; }
+      to { opacity: 1; }
     }
     .matrix-bg {
       position: absolute;
@@ -79,6 +92,19 @@
       to {
         transform: translateY(100vh);
       }
+    }
+    .wormhole {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #00f, #000);
+      box-shadow: 0 0 20px #00f, 0 0 40px #00f;
+      animation: wormhole-pulse 2s infinite alternate;
+    }
+    @keyframes wormhole-pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.2); }
     }
   </style>
 </head>
@@ -169,9 +195,26 @@
       alien.className = 'alien';
       alien.style.left = `${Math.random() * (window.innerWidth - 30)}px`;
       alien.style.top = '-30px';
+      
+      const alienType = Math.floor(Math.random() * 3);
+      switch(alienType) {
+        case 0:
+          alien.style.backgroundColor = '#f00';
+          alien.style.clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+          break;
+        case 1:
+          alien.style.backgroundColor = '#ff0';
+          alien.style.clipPath = 'circle(50% at 50% 50%)';
+          break;
+        case 2:
+          alien.style.backgroundColor = '#f0f';
+          alien.style.clipPath = 'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)';
+          break;
+      }
+      
       gameContainer.appendChild(alien);
 
-      const speed = Math.random() * 3 + 2;
+      const speed = Math.random() * 5 + 2;
       function moveAlien() {
         const top = alien.offsetTop;
         if (top > window.innerHeight) {
@@ -195,6 +238,20 @@
     function checkCollision(alien) {
       const playerRect = player.getBoundingClientRect();
       const alienRect = alien.getBoundingClientRect();
+
+      // Check wormhole collision
+      document.querySelectorAll('.wormhole').forEach(wormhole => {
+        const wormholeRect = wormhole.getBoundingClientRect();
+        if (
+          playerRect.left < wormholeRect.right &&
+          playerRect.right > wormholeRect.left &&
+          playerRect.top < wormholeRect.bottom &&
+          playerRect.bottom > wormholeRect.top
+        ) {
+          wormhole.remove();
+          timeWarp();
+        }
+      });
 
       projectiles.forEach((projectile, index) => {
         const projectileRect = projectile.getBoundingClientRect();
@@ -230,6 +287,18 @@
     function movePlayer(e) {
       const x = e.clientX || e.touches[0].clientX;
       player.style.left = `${x - 20}px`;
+    }
+
+    function createWormhole() {
+      const wormhole = document.createElement('div');
+      wormhole.className = 'wormhole';
+      wormhole.style.left = `${Math.random() * (window.innerWidth - 100)}px`;
+      wormhole.style.top = `${Math.random() * (window.innerHeight - 100)}px`;
+      gameContainer.appendChild(wormhole);
+
+      setTimeout(() => {
+        wormhole.remove();
+      }, 5000);
     }
 
     function createPowerUp() {
@@ -269,11 +338,30 @@
 
     function activatePowerUp() {
       powerUpActive = true;
-      player.style.backgroundColor = '#ff0';
+      player.style.borderBottomColor = '#ff0';
       setTimeout(() => {
         powerUpActive = false;
-        player.style.backgroundColor = '#0f0';
+        player.style.borderBottomColor = '#0f0';
       }, 10000);
+    }
+
+    function timeWarp() {
+      gameContainer.style.filter = 'hue-rotate(360deg)';
+      gameContainer.style.transition = 'filter 2s';
+      setTimeout(() => {
+        gameContainer.style.filter = 'none';
+        gameContainer.style.transition = 'none';
+      }, 2000);
+
+      // Slow down all moving elements
+      document.querySelectorAll('.alien, .planet, .projectile').forEach(element => {
+        const currentTransition = window.getComputedStyle(element).transition;
+        element.style.transition = 'all 2s';
+        element.style.top = `${parseFloat(element.style.top) + 50}px`;
+        setTimeout(() => {
+          element.style.transition = currentTransition;
+        }, 2000);
+      });
     }
 
     createMatrixBackground();
@@ -284,7 +372,18 @@
       createAlien();
     }, 5000);
     setInterval(createPowerUp, 15000);
+    setInterval(createWormhole, 10000);
     moveProjectiles();
+
+    // Increase difficulty over time
+    setInterval(() => {
+      const currentInterval = parseInt(createAlien.interval);
+      if (currentInterval > 200) {
+        clearInterval(createAlien.intervalId);
+        createAlien.interval = currentInterval - 100;
+        createAlien.intervalId = setInterval(createAlien, createAlien.interval);
+      }
+    }, 30000);
 
     gameContainer.addEventListener('mousemove', movePlayer);
     gameContainer.addEventListener('touchmove', movePlayer);
